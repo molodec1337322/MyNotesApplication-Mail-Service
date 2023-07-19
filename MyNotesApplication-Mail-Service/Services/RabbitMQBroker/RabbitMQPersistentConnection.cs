@@ -18,7 +18,6 @@ namespace MyNotesApplication_Mail_Service.Services.RabbitMQBroker
         private object sync_root = new object();
 
         public RabbitMQPersistentConnection(
-            IConnection connection, 
             IConfiguration configuration, 
             ILogger<RabbitMQPersistentConnection> logger)
         {

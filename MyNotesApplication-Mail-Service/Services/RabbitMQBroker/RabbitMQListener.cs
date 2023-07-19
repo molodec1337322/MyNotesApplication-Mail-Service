@@ -16,7 +16,7 @@ namespace MyNotesApplication_Mail_Service.Services.RabbitMQBroker
         public delegate void OnMessageRecivedHandler(string message);
         public event OnMessageRecivedHandler OnMessageRecived;
 
-        private readonly IMessageBrokerPersistentConnection _persistedConnection;
+        private readonly IMessageBrokerPersistentConnection _persistentConnection;
         private readonly IConfiguration _configuration;
         private readonly ILogger<RabbitMQListener> _logger;
 
@@ -24,11 +24,13 @@ namespace MyNotesApplication_Mail_Service.Services.RabbitMQBroker
 
         public RabbitMQListener(IMessageBrokerPersistentConnection persistedConnection, IConfiguration configuration, ILogger<RabbitMQListener> logger)
         {
-            _persistedConnection = persistedConnection;
+            _persistentConnection = persistedConnection;
             _configuration = configuration;
             _logger = logger;
 
-            _channel = _persistedConnection.CreateModel();
+            if (!_persistentConnection.IsConnected) _persistentConnection.TryConnect();
+
+            _channel = _persistentConnection.CreateModel();
 
             _channel.QueueDeclare(
                 queue: _configuration.GetValue<string>("BrokerNameQueue"),
@@ -45,6 +47,8 @@ namespace MyNotesApplication_Mail_Service.Services.RabbitMQBroker
 
         private void Listen(Object obj)
         {
+            
+
             var policy = Policy.Handle<BrokerUnreachableException>()
                 .Or<SocketException>()
                 .WaitAndRetry(_configuration.GetValue<int>("ConnectionsRetry"), retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)), (ex, time) =>
@@ -54,9 +58,9 @@ namespace MyNotesApplication_Mail_Service.Services.RabbitMQBroker
 
             while ( true )
             {
-                if(!_persistedConnection.IsConnected) _persistedConnection.TryConnect();
+                if (!_persistentConnection.IsConnected) _persistentConnection.TryConnect();
 
-                if (_channel.IsClosed) _channel = _persistedConnection.CreateModel();
+                if (_channel.IsClosed) _channel = _persistentConnection.CreateModel();
 
                 var consumer = new EventingBasicConsumer(_channel);
                 consumer.Received += (ch, ea) =>
