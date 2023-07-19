@@ -1,22 +1,77 @@
-﻿using MyNotesApplication_Mail_Service.Services.Interfaces;
+﻿using MyNotesApplication_Mail_Service.Services.Abstractions;
+using MyNotesApplication_Mail_Service.Services.Interfaces;
+using MyNotesApplication_Mail_Service.Services.Messages;
+using Polly;
+using RabbitMQ.Client;
+using RabbitMQ.Client.Events;
+using RabbitMQ.Client.Exceptions;
+using System.Net.Sockets;
+using System.Text;
+using System.Text.Json;
 
 namespace MyNotesApplication_Mail_Service.Services.RabbitMQBroker
 {
-    public class RabbitMQListener : BackgroundService
+    public class RabbitMQListener
     {
+        public delegate void OnMessageRecivedHandler(string message);
+        public event OnMessageRecivedHandler OnMessageRecived;
 
-        private IMessageBrokerPersistentConnection _persistedConnection;
-        private ILogger<RabbitMQListener> _logger;
+        private readonly IMessageBrokerPersistentConnection _persistedConnection;
+        private readonly IConfiguration _configuration;
+        private readonly ILogger<RabbitMQListener> _logger;
 
-        public RabbitMQListener(IMessageBrokerPersistentConnection persistedConnection, ILogger<RabbitMQListener> logger)
+        private IModel _channel;
+
+        public RabbitMQListener(IMessageBrokerPersistentConnection persistedConnection, IConfiguration configuration, ILogger<RabbitMQListener> logger)
         {
             _persistedConnection = persistedConnection;
+            _configuration = configuration;
             _logger = logger;
+
+            _channel = _persistedConnection.CreateModel();
+
+            _channel.QueueDeclare(
+                queue: _configuration.GetValue<string>("BrokerNameQueue"),
+                durable: false,
+                exclusive: false,
+                autoDelete: false,
+                arguments: null
+                );
+
+            var thread = new Thread(Listen);
+            thread.IsBackground = true;
+            thread.Start();
         }
 
-        protected override Task ExecuteAsync(CancellationToken stoppingToken)
+        private void Listen(Object obj)
         {
-            throw new NotImplementedException();
+            var policy = Policy.Handle<BrokerUnreachableException>()
+                .Or<SocketException>()
+                .WaitAndRetry(_configuration.GetValue<int>("ConnectionsRetry"), retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)), (ex, time) =>
+                {
+                    _logger.LogWarning(ex, ex.Message);
+                });
+
+            while ( true )
+            {
+                if(!_persistedConnection.IsConnected) _persistedConnection.TryConnect();
+
+                if (_channel.IsClosed) _channel = _persistedConnection.CreateModel();
+
+                var consumer = new EventingBasicConsumer(_channel);
+                consumer.Received += (ch, ea) =>
+                {
+                    _logger.LogInformation("Reading recived message...");
+                    var content = Encoding.UTF8.GetString(ea.Body.ToArray());
+                    _logger.LogInformation("Recived message succesfully deserialized!");
+
+                    OnMessageRecived(content);
+
+                    _channel.BasicAck(ea.DeliveryTag, false);
+                };
+
+                _channel.BasicConsume(_configuration.GetValue<string>("BrokerNameQueue"), false, consumer);
+            }
         }
     }
 }
