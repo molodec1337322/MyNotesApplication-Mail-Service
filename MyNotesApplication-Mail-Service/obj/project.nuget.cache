@@ -1,12 +1,13 @@
 {
   "version": 2,
-  "dgSpecHash": "Gd52isHUY0wEiTwjL8QoghBR/45qcmSnQqzl0jhrZd5bWjvBfTaqEbsoMcFN5WoNoPXvRH9EU/tjY0eqsr13ZA==",
+  "dgSpecHash": "ZpraLjyyhR0BNwtyV5K50ve5DI+JbI0jcoGJbg2exqIBSzOrAPAtCB+ORxMNBfReB1MNtAEt51hutg05hWhbIg==",
   "success": true,
   "projectFilePath": "C:\\Users\\Molodec\\source\\repos\\MyNotesApplication-Mail-Service\\MyNotesApplication-Mail-Service\\MyNotesApplication-Mail-Service.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\Molodec\\.nuget\\packages\\bouncycastle.cryptography\\2.2.1\\bouncycastle.cryptography.2.2.1.nupkg.sha512",
     "C:\\Users\\Molodec\\.nuget\\packages\\mailkit\\4.1.0\\mailkit.4.1.0.nupkg.sha512",
     "C:\\Users\\Molodec\\.nuget\\packages\\mimekit\\4.1.0\\mimekit.4.1.0.nupkg.sha512",
+    "C:\\Users\\Molodec\\.nuget\\packages\\polly\\7.2.4\\polly.7.2.4.nupkg.sha512",
     "C:\\Users\\Molodec\\.nuget\\packages\\rabbitmq.client\\6.5.0\\rabbitmq.client.6.5.0.nupkg.sha512",
     "C:\\Users\\Molodec\\.nuget\\packages\\system.formats.asn1\\7.0.0\\system.formats.asn1.7.0.0.nupkg.sha512",
     "C:\\Users\\Molodec\\.nuget\\packages\\system.memory\\4.5.5\\system.memory.4.5.5.nupkg.sha512",

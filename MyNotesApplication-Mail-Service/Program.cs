@@ -7,7 +7,7 @@ builder.Configuration.AddJsonFile("appsettings.json");
 
 IConfiguration _configuration = builder.Configuration;
 
-builder.Services.AddScoped<IMessageBrokerPersistentConnection, RabbitMQPersistedConnection>();
+builder.Services.AddScoped<IMessageBrokerPersistentConnection, RabbitMQPersistentConnection>();
 builder.Services.AddScoped<RabbitMQListener>();
 
 var app = builder.Build();
