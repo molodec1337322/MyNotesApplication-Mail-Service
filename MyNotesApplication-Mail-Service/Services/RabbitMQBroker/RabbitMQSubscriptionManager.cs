@@ -21,6 +21,7 @@ namespace MyNotesApplication_Mail_Service.Services.RabbitMQBroker
         {
             var service = _services.FirstOrDefault(s => s.ServiceName == messageBase.ServiceName);
             if (service == null) throw new NullReferenceException("No specified service found");
+
             service.DoWork(messageBase.JSONPayload);
         }
     }
