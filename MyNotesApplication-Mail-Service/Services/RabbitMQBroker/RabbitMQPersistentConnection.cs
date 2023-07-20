@@ -45,7 +45,7 @@ namespace MyNotesApplication_Mail_Service.Services.RabbitMQBroker
             _disposed = true;
             try
             {
-                _connection.Dispose();
+                if (_connection != null) _connection.Dispose();
             }
             catch (IOException ex)
             {
