@@ -1,4 +1,4 @@
-﻿namespace MyNotesApplication_Mail_Service.Services.Messages
+﻿namespace MyNotesApplication_Mail_Service.Services.EmailService.Message
 {
     public class EmailRabbitMQMessage
     {

@@ -1,4 +1,4 @@
-using MyNotesApplication_Mail_Service.Services;
+using MyNotesApplication_Mail_Service.Services.EmailService;
 using MyNotesApplication_Mail_Service.Services.Interfaces;
 using MyNotesApplication_Mail_Service.Services.RabbitMQBroker;
 
@@ -12,9 +12,11 @@ builder.Services.AddDistributedMemoryCache();
 builder.Services.AddSession();
 builder.Services.AddControllers();
 
-builder.Services.AddScoped<IMessageBrokerPersistentConnection, RabbitMQPersistentConnection>();
-builder.Services.AddScoped<RabbitMQListener>();
-builder.Services.AddScoped<EmailSender>();
+builder.Services.AddSingleton<IMessageBrokerPersistentConnection, RabbitMQPersistentConnection>();
+builder.Services.AddSingleton<EmailService>();
+builder.Services.AddSingleton<IServiceSubscriptionManager, RabbitMQSubscriptionManager>();
+
+builder.Services.AddHostedService<RabbitMQListener>();
 
 var app = builder.Build();
 

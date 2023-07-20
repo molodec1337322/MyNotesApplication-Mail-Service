@@ -1,4 +1,4 @@
-﻿using MyNotesApplication_Mail_Service.Services.Abstractions;
+﻿using MyNotesApplication_Mail_Service.Services.EmailService;
 using MyNotesApplication_Mail_Service.Services.Interfaces;
 using MyNotesApplication_Mail_Service.Services.Messages;
 using Polly;
@@ -11,71 +11,65 @@ using System.Text.Json;
 
 namespace MyNotesApplication_Mail_Service.Services.RabbitMQBroker
 {
-    public class RabbitMQListener
+    public class RabbitMQListener : BackgroundService
     {
-        public delegate void OnMessageRecivedHandler(string message);
-        public event OnMessageRecivedHandler OnMessageRecived;
-
         private readonly IMessageBrokerPersistentConnection _persistentConnection;
+        private readonly IServiceSubscriptionManager _serviceSubscriptionManager;
         private readonly IConfiguration _configuration;
         private readonly ILogger<RabbitMQListener> _logger;
 
         private IModel _channel;
 
-        public RabbitMQListener(IMessageBrokerPersistentConnection persistedConnection, IConfiguration configuration, ILogger<RabbitMQListener> logger)
+        public RabbitMQListener(
+            IMessageBrokerPersistentConnection persistedConnection, 
+            IServiceSubscriptionManager serviceSubscriptionManager, 
+            IConfiguration configuration, ILogger<RabbitMQListener> logger,
+            EmailService.EmailService emailSender
+            )
         {
             _persistentConnection = persistedConnection;
             _configuration = configuration;
             _logger = logger;
 
-            if (!_persistentConnection.IsConnected) _persistentConnection.TryConnect();
-
-            _channel = _persistentConnection.CreateModel();
-
-            _channel.QueueDeclare(
-                queue: _configuration.GetValue<string>("BrokerNameQueue"),
-                durable: false,
-                exclusive: false,
-                autoDelete: false,
-                arguments: null
-                );
-
-            var thread = new Thread(Listen);
-            thread.IsBackground = true;
-            thread.Start();
+            _serviceSubscriptionManager = serviceSubscriptionManager;
+            _serviceSubscriptionManager.AddSubscribtion(emailSender);
         }
 
-        private void Listen(Object obj)
+        protected override Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            
+            if (!_persistentConnection.IsConnected) _persistentConnection.TryConnect();
 
-            var policy = Policy.Handle<BrokerUnreachableException>()
-                .Or<SocketException>()
-                .WaitAndRetry(_configuration.GetValue<int>("ConnectionsRetry"), retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)), (ex, time) =>
-                {
-                    _logger.LogWarning(ex, ex.Message);
-                });
+            if (_channel == null) _channel = _persistentConnection.CreateModel();
 
-            while ( true )
+            _channel.QueueDeclare(
+                    queue: _configuration.GetValue<string>("BrokerMessageQueue"),
+                    durable: false,
+                    exclusive: false,
+                    autoDelete: false,
+                    arguments: null
+                    );
+
+            var consumer = new EventingBasicConsumer(_channel);
+            consumer.Received += (ch, ea) =>
             {
-                if (!_persistentConnection.IsConnected) _persistentConnection.TryConnect();
+                _logger.LogInformation("Reading recived message...");
+                var messageBase = JsonSerializer.Deserialize<MessageBase>(Encoding.UTF8.GetString(ea.Body.ToArray()));
+                _logger.LogInformation("Recived message succesfully deserialized!");
 
-                if (_channel.IsClosed) _channel = _persistentConnection.CreateModel();
+                _serviceSubscriptionManager.OnMessageRecived(messageBase);
 
-                var consumer = new EventingBasicConsumer(_channel);
-                consumer.Received += (ch, ea) =>
-                {
-                    _logger.LogInformation("Reading recived message...");
-                    var content = Encoding.UTF8.GetString(ea.Body.ToArray());
-                    _logger.LogInformation("Recived message succesfully deserialized!");
+                _channel.BasicAck(ea.DeliveryTag, false);
+            };
 
-                    OnMessageRecived(content);
+            _channel.BasicConsume(_configuration.GetValue<string>("BrokerMessageQueue"), false, consumer);
 
-                    _channel.BasicAck(ea.DeliveryTag, false);
-                };
+            return Task.CompletedTask;
+        }
 
-                _channel.BasicConsume(_configuration.GetValue<string>("BrokerNameQueue"), false, consumer);
-            }
+        public override void Dispose()
+        {
+            _persistentConnection.Dispose();
+            base.Dispose();
         }
     }
 }
